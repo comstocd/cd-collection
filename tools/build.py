@@ -27,7 +27,7 @@ for r in rows('Picard Jan 2023'):
     picard[(norm(r['artist']), norm(r['title']))].append(r)
 photo = collections.defaultdict(list)
 for n in wb.sheetnames:
-    if not n.startswith('Photo'):
+    if not (n.startswith('Photo') or n.startswith('Loose')):
         continue
     for r in rows(n):
         if not r.get('title'):
@@ -83,6 +83,9 @@ CLASSICAL = {  # (filing key, display artist, display title)
     'BBC Music, Volume 2, Number 8: Brahms: Liebeslieder Waltzes and Neue Liebeslieder / Spohr: Three Psalms, op. 85 / Meyerbeer: Psalm 91': ('Brahms', 'Brahms', 'Liebeslieder Waltzes (BBC Music)'),
     'Chant d’amour : mélodies françaises': ('Bartoli', 'Cecilia Bartoli', "Chant d'amour"),
     'Sentimento': ('Bocelli', 'Andrea Bocelli', 'Sentimento'),
+    'Passion': ('Carreras', 'José Carreras', 'Passion'),
+    'Symphonies Nos. 22, 24 & 29': ('Mozart 3', 'Mozart', 'Symphonies 22, 24 & 29'),
+    'NatWest Live! Classical Classics': ('NatWest', 'Various', 'NatWest Live! Classical Classics'),
     'Live Recordings, 1957–1963': ('Callas', 'Maria Callas', 'Live Recordings 1957-63'),
     'The Piano Rolls, Volume Two': ('Gershwin', 'Gershwin', 'The Piano Rolls, Vol. 2'),
     'Messiah': ('Handel', 'Handel', 'Messiah'),
@@ -109,7 +112,8 @@ SOLO = ['Alanis Morissette','Alicia Keys','Alison Moyet','Anita Baker','Aretha F
     'Ella Fitzgerald','Emanuele Cisi 4et','Harry Connick, Jr.',"Herb Alpert's Tijuana Brass",
     'Herbie Hancock','Illinois Jacquet','Joe Henderson','Keith Jarrett','Louis Jordan','Miles Davis',
     'Norah Jones','Stan Getz','Tony Bennett','Wayne Shorter','Andrea Bocelli','Angelique Kidjo',
-    'Amy Hayashi-Jones','Michael Whalen','Luba Tcheresky','Patricia Kaas','Édith Piaf','Jerry Garcia','Mickey Hart']
+    'Amy Hayashi-Jones','Michael Whalen','Luba Tcheresky','Patricia Kaas','Édith Piaf','Jerry Garcia','Mickey Hart',
+    'Lenny Kravitz','Bob Marley','Susanna Hoffs','Michael Boose','Marco Granados','José Carreras']
 SURNAME = {}
 for a in SOLO:
     w = a.replace('Elvis Costello with Burt Bacharach', 'Elvis Costello').replace(' & The Jazz Messengers', '')
@@ -151,7 +155,7 @@ def copy_info(a0, t0, fmt):
         c.setdefault('label', ph['label'])
         if not c.get('catno'): c['catno'] = ph['catno (from spine)']
         if not c.get('label'): c['label'] = ph['label']
-        c['found'] = ph['_batch'].replace('Photo batch', 'Photo') + ', ' + ph['position']
+        c['found'] = ph['_batch'].replace('Photo batch', 'Photo').replace('Loose discs', 'Loose list') + ', ' + ph['position']
         st = ph['status'] or ''
         if st and not c.get('note') and not st.startswith('In Jan') and st not in ('NEW', 'NEW - SACD', 'Second copy'):
             st = re.sub(r'^NEW( - SACD)?( - |\s)?', '', st).strip()
@@ -186,7 +190,8 @@ OVERRIDES = {
 items = []
 for r in rows('Shelf plan'):
     sec, a0, t0, discs, fmt = r['section'], r['artist'], r['title'], r['discs'], r['format']
-    w = float(r.get('shelf width (cases)') or 1)
+    w = float(r.get('shelf width (cases)') if r.get('shelf width (cases)') is not None else 1)
+    loose = bool(r.get('storage'))
     sk, sname = SECS[sec[0]]
     ov = OVERRIDES.get((a0, t0))
     a = ARTIST_FIX.get(a0, a0)
@@ -208,13 +213,23 @@ for r in rows('Shelf plan'):
     if ov:
         cp = dict(ov['copy'], **{k: v for k, v in cp.items() if k == 'found'})
         discs = ov['discs']; w = 1.0
+    if loose:
+        n = cp.pop('note', '') or ''
+        m = re.search(r'\((\d{4})\)', n)
+        if m and not cp.get('date'): cp['date'] = m.group(1)
+        extra = re.sub(r'\(\d{4}\)', '', n)
+        extra = re.sub(r'(?i)no jewel case;?', '', extra).strip(' ;()-')
+        extra = re.sub(r'(?i)^already catalogued.*', '', extra).strip()
+        cp['note'] = 'No jewel case; kept with the loose discs' + ('. ' + extra if extra else '')
+        if cp.get('source') == 'Spine photo': cp['source'] = "David's list of loose discs, Oct 2026"
+        cp['found'] = 'Loose discs list'
     items.append(dict(sec=sk, section=sname, key=key, artist=a, title=t, artist_full=a0, title_full=t0,
-                      format=fmt, discs=int(discs or 1), w=w, copy=cp))
+                      format=fmt, discs=int(discs or 1), w=w, loose=loose, copy=cp))
 
 # merge identical cases into one entry with a copies list
 merged = collections.OrderedDict()
 for it in items:
-    k = (it['sec'], it['artist'], it['title'], it['format'])
+    k = (it['sec'], it['artist'], it['title'], it['format'], it['loose'])
     if k in merged:
         merged[k]['copies'].append(it.pop('copy')); merged[k]['w'] += it['w']
     else:
@@ -226,7 +241,7 @@ ORDER = {
  'Beatles': ['With The Beatles','Help!','Revolver','Magical Mystery Tour','The Beatles (White Album)','Anthology 1','1','Rock ’n’ Roll','Band on the Run','GRP Artists: Songs of the Beatles'],
  'Dead1': ['The Grateful Dead (debut)','Anthem of the Sun','Aoxomoxoa','Live/Dead',"Workingman's Dead",'American Beauty','Grateful Dead (Skull & Roses)',"Europe '72","Bear's Choice",'Wake of the Flood','Skeletons From the Closet','Blues for Allah','Terrapin Station',"What a Long Strange Trip It's Been",'Shakedown Street','Reckoning','Dead Set'],
 }
-def by(s): return [i for i in items if i['sec'] == s]
+def by(s): return [i for i in items if i['sec'] == s and not i['loose']]
 def asort(lst): return sorted(lst, key=lambda i: (i['key'], i['title'].lower()))
 CAP = 16  # standard jewel cases per cubby, measured from the shelf photo
 def wsplit(lst, n):
@@ -283,8 +298,12 @@ for gid, lst, n in GROUPS:
         if part and part[0]['sec'] == 'rock': sub = part[0]['artist'] + ' to ' + part[-1]['artist'] + ' · ' + sub
         cub['%s_%d' % (gid, k)] = (name, sub, part)
 
+LOOSE_ORDER = ['classical', 'jazz', 'rock', 'other', 'dead', 'allmans', 'beatles', 'xmas']
+loose = sorted([i for i in items if i['loose']], key=lambda i: (LOOSE_ORDER.index(i['sec']), i['key'], i['title'].lower()))
+cub['loose'] = ('Loose discs', 'No jewel case; filed by section, then artist. Also the holding cubby for uncatalogued discs', loose)
+
 GRID = [['g1_0', 'g1_1', 'g2_0', 'g2_1'],
-        ['g2_2', 'g2_3', 'g3_0', None],
+        ['g2_2', 'g2_3', 'g3_0', 'loose'],
         ['g4_0', 'g4_1', 'g4_2', 'g4_3'],
         ['g5_0', 'g5_1', 'g5_2', 'g5_3'],
         ['g5_4', 'g5_5', 'g5_6', 'g5_7'],
@@ -301,7 +320,7 @@ for r, row in enumerate(GRID, 1):
         ids = []
         for it in lst:
             seq += 1
-            it = dict(it); it.pop('key'); it.pop('w')
+            it = dict(it); it.pop('key'); it.pop('w'); it.pop('loose')
             it['id'] = seq; it['cubby'] = pos; it['cubby_name'] = name
             it['qty'] = len(it['copies'])
             dates = [x.get('date', '') for x in it['copies'] if x.get('date')]
