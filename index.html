@@ -111,6 +111,21 @@ summary::-webkit-details-marker{display:none}
 footer{margin-top:28px;color:var(--muted);font-size:.85rem;max-width:70ch}
 footer ul{margin:6px 0 0;padding-left:18px}
 [hidden]{display:none!important}
+/* pick 3 */
+.bar.picking .row,.bar.picking #q{display:none}
+.bar.picking .top{-webkit-justify-content:flex-end;justify-content:flex-end}
+#pick{padding-top:22px}
+.theme{font-family:var(--display);font-size:.8rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0}
+.why{font-family:var(--display);font-weight:700;font-size:1.6rem;line-height:1.2;margin:4px 0 0}
+.whysub{color:var(--muted);margin:4px 0 0}
+.picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-gap:12px;margin-top:18px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-top:5px solid var(--sc);border-radius:6px;padding:14px 16px 16px;color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent;min-width:0}
+.card .ct{font-weight:600;font-size:1.1rem;line-height:1.25;display:block}
+.card .ca{color:var(--muted);display:block;margin-top:4px}
+.card .cm{display:block;margin-top:12px;font-family:var(--display);font-size:.85rem;letter-spacing:.04em}
+.card .cm .fmt{margin-left:8px}
+.again{margin-top:20px;font-family:var(--display);font-size:1.05rem;letter-spacing:.03em;border:0;border-radius:999px;background:var(--accent);color:var(--bg);padding:10px 22px;min-height:44px;cursor:pointer;-webkit-appearance:none}
+@media (max-width:600px){.picks{grid-template-columns:1fr}}
 @media (max-width:600px){.kv{grid-template-columns:1fr}.kv dt{padding-top:6px}.unit{grid-template-columns:repeat(2,minmax(0,1fr))}.top{flex-wrap:wrap}.top>*+*{margin-left:0;margin-top:8px}}
 @media (max-width:820px){label.sl{display:none}}
 @media (min-width:700px){body{font-size:17px}h1{font-size:2.4rem}}
@@ -138,7 +153,7 @@ footer ul{margin:6px 0 0;padding-left:18px}
     <div class="top">
       <input id="q" type="search" placeholder="Search artist, title, label, catalogue number…" aria-label="Search the collection" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <div class="seg" role="group" aria-label="View">
-        <button type="button" id="vList" aria-pressed="true">List</button><button type="button" id="vShelf" aria-pressed="false">Shelf</button>
+        <button type="button" id="vList" aria-pressed="true">List</button><button type="button" id="vShelf" aria-pressed="false">Shelf</button><button type="button" id="vPick" aria-pressed="false">Pick 3</button>
       </div>
     </div>
     <div class="row">
@@ -156,10 +171,12 @@ footer ul{margin:6px 0 0;padding-left:18px}
 
   <div id="list"></div>
   <div id="shelf" hidden></div>
+  <div id="pick" hidden></div>
   <div id="upd" role="status" aria-live="polite"><span>Update available</span><button type="button" id="updGo">Update now</button><button type="button" id="updLater">Later</button></div>
 
   <footer>
     <p>Shelf positions follow the 4 × 6 cubby plan: R1 is the top row, C1 the left column. Within a section, solo artists file by surname and bands by first word, ignoring "The"; the Beatles and the first Grateful Dead cubby run in release order. Label, catalogue number, barcode and pressing date come from the MusicBrainz release your drive matched when the disc was ripped in January 2023, or from the spine photos for discs not ripped (including every SACD, which a computer drive can't read). The pressing year is that edition's release, not the album's original year. Entries marked CHECK are partly unreadable spines.</p>
+    <p>Pick 3 chooses a theme at random, then three albums that share it: three by one artist, one section, one cubby, SACDs, live recordings, or greatest-hits sets. Live recordings are picked by title words (live, Fillmore, Dick's Picks, Unplugged and similar), so a live album without one of those words in its title won't come up. Christmas joins the rotation from November.</p>
     <p id="unplacedHead">Not on the shelf map yet:</p>
     <ul id="unplaced"></ul>
   </footer>
@@ -196,6 +213,56 @@ $("chk").onclick=function(){st.chk=!st.chk;render()};
 function setView(v){st.view=v;try{localStorage.setItem("cd-view",v)}catch(e){}render()}
 $("vList").onclick=function(){setView("list")};
 $("vShelf").onclick=function(){setView("shelf")};
+$("vPick").onclick=function(){if(st.view!=="pick")newPick();setView("pick")};
+
+/* ---- Pick 3: one theme, three albums that share it ---- */
+var LIVE=/\blive\b|fillmore|concert|winterland|leeds|carnegie|woodstock|unplugged|red rocks|dick's picks|europe '72|dead set|reckoning|performance|on tour|evening with|ludlow|hundred year hall|two from the vault|soundcheck|benefit|betty nelson|buffalo|bear's choice|ladies and gentlemen|super session|bbc sessions/i;
+function shuffle(a){a=a.slice();for(var k=a.length-1;k>0;k--){var j=Math.floor(Math.random()*(k+1));var t=a[k];a[k]=a[j];a[j]=t}return a}
+function pickOf(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function distinctArtists(list,n){
+  var seen={},out=[];
+  shuffle(list).forEach(function(i){if(out.length<n&&!seen[i.artist]&&!/^\(|^Various/.test(i.artist)){seen[i.artist]=1;out.push(i)}});
+  return out.length===n?out:null;
+}
+var byArtist={};ITEMS.forEach(function(i){(byArtist[i.artist]=byArtist[i.artist]||[]).push(i)});
+var bigArtists=Object.keys(byArtist).filter(function(a){return byArtist[a].length>=3&&!/^\(|^Various/.test(a)});
+var month=new Date().getMonth();
+var THEMES=[
+  {w:3,make:function(){var a=pickOf(bigArtists);return {kicker:"Three by one artist",title:a,sub:byArtist[a].length+" of theirs on the shelf",items:shuffle(byArtist[a]).slice(0,3)}}},
+  {w:4,make:function(){
+    var secs=SECORDER.filter(function(k){return k!=="xmas"||month>=10});
+    var k=pickOf(secs),it=distinctArtists(ITEMS.filter(function(i){return i.sec===k}),3);
+    if(!it&&k==="dead")it=shuffle(ITEMS.filter(function(i){return i.sec===k})).slice(0,3);
+    return it&&{kicker:"Same section",title:SECNAME[k],sub:k==="dead"?"Studio, live and side projects":"Three different artists",items:it}}},
+  {w:3,make:function(){
+    var c=pickOf(CUB.filter(function(c){return c.ids.length>=3}));
+    var list=c.ids.map(function(id){return byId[id]});
+    var it=distinctArtists(list,3)||shuffle(list).slice(0,3);
+    return {kicker:"One trip to the shelf",title:"Cubby "+c.pos,sub:c.name+(c.sub?" · "+c.sub:""),items:it}}},
+  {w:2,make:function(){var it=distinctArtists(ITEMS.filter(function(i){return i.format==="SACD"}),3);
+    return it&&{kicker:"Listening session",title:"SACD night",sub:"Three Mobile Fidelity SACDs",items:it}}},
+  {w:3,make:function(){var it=distinctArtists(ITEMS.filter(function(i){return LIVE.test(i.title)||LIVE.test(i.title_full||"")}),3);
+    return it&&{kicker:"On stage",title:"Live recordings",sub:"Concert albums from three different artists",items:it}}},
+  {w:2,make:function(){var it=distinctArtists(ITEMS.filter(function(i){return /greatest|best of|hits|essential|definitive|ultimate|chronicle|collection|decade|songbook|skeletons|long strange/i.test(i.title)&&i.sec!=="classical"}),3);
+    return it&&{kicker:"Crowd pleasers",title:"Greatest hits",sub:"Compilations from three different artists",items:it}}}
+];
+var lastKey="";
+function newPick(){
+  var total=THEMES.reduce(function(s,t){return s+t.w},0),r,p=null,tries=0;
+  while(!p&&tries<40){
+    tries++;r=Math.random()*total;
+    for(var k=0;k<THEMES.length;k++){r-=THEMES[k].w;if(r<0){p=THEMES[k].make();break}}
+    if(p){var key=p.items.map(function(i){return i.id}).sort().join(",");if(key===lastKey)p=null;else lastKey=key}
+  }
+  st.pick=p;
+}
+function renderPick(){
+  var p=st.pick;if(!p){$("pick").innerHTML='<p class="empty">Nothing to pick from.</p>';return}
+  $("pick").innerHTML='<p class="theme">'+esc(p.kicker)+'</p><h2 class="why">'+esc(p.title)+'</h2><p class="whysub">'+esc(p.sub)+'</p><div class="picks">'+
+    p.items.map(function(i){return '<a class="card s-'+i.sec+'" href="#it'+i.id+'" data-id="'+i.id+'"><span class="ct">'+esc(i.title)+'</span><span class="ca">'+esc(i.artist)+'</span><span class="cm"><span class="pos s-'+i.sec+'"><span class="dot"></span>'+esc(i.cubby)+'</span><span class="tag fmt'+(i.format==="SACD"?" sacd":"")+'">'+esc(i.format)+"</span></span></a>"}).join("")+
+    '</div><button type="button" class="again" id="again">Another three</button>';
+  $("again").onclick=function(){newPick();renderPick()};
+}
 
 function match(i){
   var words=st.q.replace(/[‐‑–]/g,"-").split(/\s+/).filter(Boolean);
@@ -260,7 +327,7 @@ function renderShelf(){
     return '<section class="cubby s-'+c.sec+(on?" on":"")+'"><header><span class="p">'+esc(c.pos)+"</span><h2>"+esc(c.name)+'</h2><span class="n">'+n+"</span>"+(c.sub?'<p class="s">'+esc(c.sub)+"</p>":"")+"</header><ol>"+html.join("")+"</ol></section>";
   }).join("")+"</div>";
 }
-$("shelf").addEventListener("click",function(e){
+function jump(e){
   var a=e.target.closest?e.target.closest("a[data-id]"):null;
   if(!a)return;
   e.preventDefault();
@@ -268,16 +335,21 @@ $("shelf").addEventListener("click",function(e){
   setView("list");
   var d=$("it"+a.getAttribute("data-id"));
   if(d){d.open=true;d.className="flash";d.scrollIntoView();window.scrollBy(0,-(document.querySelector(".bar").offsetHeight+12));setTimeout(function(){d.className=""},1600)}
-});
+}
+$("shelf").addEventListener("click",jump);
+$("pick").addEventListener("click",jump);
 function render(){
   $("chk").setAttribute("aria-pressed",String(st.chk));
   $("vList").setAttribute("aria-pressed",String(st.view==="list"));
   $("vShelf").setAttribute("aria-pressed",String(st.view==="shelf"));
+  $("vPick").setAttribute("aria-pressed",String(st.view==="pick"));
+  $("pick").hidden=st.view!=="pick";
+  document.querySelector(".bar").className="bar"+(st.view==="pick"?" picking":"");
   $("list").hidden=st.view!=="list";$("shelf").hidden=st.view!=="shelf";
   $("wrap").className="wrap"+(st.view==="shelf"?" wide":"");
   $("sort").hidden=$("sortL").hidden=st.view==="shelf";
   var r=ITEMS.filter(match);
-  if(st.view==="list")renderList(r);else renderShelf();
+  if(st.view==="list")renderList(r);else if(st.view==="shelf")renderShelf();else renderPick();
   var cases=ITEMS.reduce(function(s,i){return s+i.qty},0);
   var sacd=ITEMS.filter(function(i){return i.format==="SACD"}).reduce(function(s,i){return s+i.qty},0);
   var shown=r.reduce(function(s,i){return s+i.qty},0);
