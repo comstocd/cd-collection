@@ -186,6 +186,7 @@ OVERRIDES = {
 items = []
 for r in rows('Shelf plan'):
     sec, a0, t0, discs, fmt = r['section'], r['artist'], r['title'], r['discs'], r['format']
+    w = float(r.get('shelf width (cases)') or 1)
     sk, sname = SECS[sec[0]]
     ov = OVERRIDES.get((a0, t0))
     a = ARTIST_FIX.get(a0, a0)
@@ -206,16 +207,16 @@ for r in rows('Shelf plan'):
     cp = copy_info(a0, lookup_t, fmt)
     if ov:
         cp = dict(ov['copy'], **{k: v for k, v in cp.items() if k == 'found'})
-        discs = ov['discs']
+        discs = ov['discs']; w = 1.0
     items.append(dict(sec=sk, section=sname, key=key, artist=a, title=t, artist_full=a0, title_full=t0,
-                      format=fmt, discs=int(discs or 1), copy=cp))
+                      format=fmt, discs=int(discs or 1), w=w, copy=cp))
 
 # merge identical cases into one entry with a copies list
 merged = collections.OrderedDict()
 for it in items:
     k = (it['sec'], it['artist'], it['title'], it['format'])
     if k in merged:
-        merged[k]['copies'].append(it.pop('copy'))
+        merged[k]['copies'].append(it.pop('copy')); merged[k]['w'] += it['w']
     else:
         it['copies'] = [it.pop('copy')]
         merged[k] = it
@@ -227,29 +228,30 @@ ORDER = {
 }
 def by(s): return [i for i in items if i['sec'] == s]
 def asort(lst): return sorted(lst, key=lambda i: (i['key'], i['title'].lower()))
-def size(i): return len(i['copies'])
-def split(lst, n):
-    """Divide into n runs of about equal size without splitting an artist across cubbies."""
-    total = sum(size(i) for i in lst); out = [[] for _ in range(n)]; idx = 0; run = 0; groups = []
+CAP = 16  # standard jewel cases per cubby, measured from the shelf photo
+def wsplit(lst, n):
+    """Divide into n runs of shelf width (cases), minimising the fullest cubby, never splitting an artist."""
+    groups = []
     for i in lst:
-        if groups and groups[-1][0]['artist'] == i['artist']: groups[-1].append(i)
-        else: groups.append([i])
-    target = total / n
-    for g in groups:
-        c = sum(size(i) for i in g)
-        if idx < n - 1 and run > 0 and run + c / 2 > target * (idx + 1): idx += 1
-        out[idx].extend(g); run += c
-    return out
+        if groups and groups[-1][0]['artist'] == i['artist'] and groups[-1][0]['sec'] == i['sec'] and i['artist'] != 'Grateful Dead':
+            groups[-1].append(i)
+        else:
+            groups.append([i])
+    W = [sum(i['w'] for i in g) for g in groups]; pre = [0]
+    for x in W: pre.append(pre[-1] + x)
+    memo = {}
+    def best(j, k):
+        if k == 1: return (pre[j], ())
+        if (j, k) in memo: return memo[(j, k)]
+        r = (1e9, ())
+        for t in range(k - 1, j):
+            mx, c = best(t, k - 1); v = max(mx, pre[j] - pre[t])
+            if v < r[0]: r = (v, c + (t,))
+        memo[(j, k)] = r; return r
+    cuts = [0] + list(best(len(groups), n)[1]) + [len(groups)]
+    return [[x for g in groups[cuts[q]:cuts[q + 1]] for x in g] for q in range(n)]
 
-cub = {}
-cub['xmas'] = ('Christmas', '', asort(by('xmas')))
-cub['other'] = ('Other', 'New age, world, novelty', asort(by('other')))
-cl = asort(by('classical')); h = (len(cl) + 1) // 2
-cub['cl1'] = ('Classical', '', cl[:h]); cub['cl2'] = ('Classical', '', cl[h:])
-j1, j2 = split(asort(by('jazz')), 2)
-cub['jz1'] = ('Jazz', '', j1); cub['jz2'] = ('Jazz', '', j2)
 bt = by('beatles'); bt.sort(key=lambda i: ORDER['Beatles'].index(i['title']))
-cub['beatles'] = ('Beatles', 'Studio, comps, solo, tribute', bt)
 gd = by('dead')
 d1 = sorted([i for i in gd if i['title'] in ORDER['Dead1']], key=lambda i: ORDER['Dead1'].index(i['title']))
 def drank(i):
@@ -259,33 +261,47 @@ def drank(i):
     if 'CD-R' in t or t in ["Soundcheck '73", 'Rainforest Benefit', 'Werewolves of Red Rocks', "09-02-68 Betty Nelson's"]: return (2, '', t)
     return (1, '', t)
 rest = sorted([i for i in gd if i['title'] not in ORDER['Dead1']], key=drank)
-cub['gd1'] = ('Grateful Dead', 'Studio and original-era live, in release order', d1)
-cub['gd2'] = ('Grateful Dead', 'Archival, unofficial, side projects', rest)
-cub['abb'] = ('Allman Brothers', '', asort(by('allmans')))
+# sections flow continuously from cubby to cubby, sized by shelf width
+GROUPS = [('g1', asort(by('xmas')) + asort(by('other')), 2),
+          ('g2', asort(by('classical')) + asort(by('jazz')), 4),
+          ('g3', bt, 1),
+          ('g4', d1 + rest + asort(by('allmans')), 4),
+          ('g5', asort(by('rock')), 12)]
 def letter(i): return i['key'][0].upper() if i['key'][0].isalpha() else '#'
-for n, lst in enumerate(split(asort(by('rock')), 12)):
-    rng = letter(lst[0]) + (('–' + letter(lst[-1])) if letter(lst[-1]) != letter(lst[0]) else '')
-    cub['rk%d' % (n + 1)] = ('Rock & Pop ' + rng, lst[0]['artist'] + ' to ' + lst[-1]['artist'], lst)
+cub = {}
+for gid, lst, n in GROUPS:
+    for k, part in enumerate(wsplit(lst, n)):
+        secs = []
+        for i in part:
+            if i['section'] not in secs: secs.append(i['section'])
+        name = ' / '.join(secs)
+        if secs == ['Rock & Pop']:
+            rng = letter(part[0]) + (('–' + letter(part[-1])) if letter(part[-1]) != letter(part[0]) else '')
+            name += ' ' + rng
+        width = sum(i['w'] for i in part)
+        sub = '%g of ~%d case-widths' % (width, CAP)
+        if part and part[0]['sec'] == 'rock': sub = part[0]['artist'] + ' to ' + part[-1]['artist'] + ' · ' + sub
+        cub['%s_%d' % (gid, k)] = (name, sub, part)
 
-GRID = [['xmas', 'other', None, None],
-        ['cl1', 'cl2', 'jz1', 'jz2'],
-        ['beatles', 'gd1', 'gd2', 'abb'],
-        ['rk1', 'rk2', 'rk3', 'rk4'],
-        ['rk5', 'rk6', 'rk7', 'rk8'],
-        ['rk9', 'rk10', 'rk11', 'rk12']]
+GRID = [['g1_0', 'g1_1', 'g2_0', 'g2_1'],
+        ['g2_2', 'g2_3', 'g3_0', None],
+        ['g4_0', 'g4_1', 'g4_2', 'g4_3'],
+        ['g5_0', 'g5_1', 'g5_2', 'g5_3'],
+        ['g5_4', 'g5_5', 'g5_6', 'g5_7'],
+        ['g5_8', 'g5_9', 'g5_10', 'g5_11']]
 
 out_items, cubbies, seq = [], [], 0
 for r, row in enumerate(GRID, 1):
     for c, cid in enumerate(row, 1):
         pos = 'R%d·C%d' % (r, c)
         if cid is None:
-            cubbies.append(dict(pos=pos, name='Spare', sub='Open for growth', sec='spare', ids=[]))
+            cubbies.append(dict(pos=pos, name='Spare', sub='Holding cubby for uncatalogued discs', sec='spare', ids=[]))
             continue
         name, sub, lst = cub[cid]
         ids = []
         for it in lst:
             seq += 1
-            it = dict(it); it.pop('key')
+            it = dict(it); it.pop('key'); it.pop('w')
             it['id'] = seq; it['cubby'] = pos; it['cubby_name'] = name
             it['qty'] = len(it['copies'])
             dates = [x.get('date', '') for x in it['copies'] if x.get('date')]
@@ -299,7 +315,7 @@ for r, row in enumerate(GRID, 1):
         cubbies.append(dict(pos=pos, name=name, sub=sub, sec=lst[0]['sec'] if lst else 'spare', ids=ids))
 
 data = dict(build=BUILD, updated=datetime.date.today().isoformat(), cubbies=cubbies, items=out_items,
-            unplaced=['About 30 cases with unreadable spines', 'An unlabeled Fujifilm CD-R',
+            unplaced=['About 35 to 40 cases with blank or unreadable spines', 'An unlabeled Fujifilm CD-R',
                       'A black Madama Butterfly box (second copy, or the outer box of the 3-CD Karajan set)',
                       'A Laserlight Maria Callas disc (may duplicate Live Recordings 1957-63)',
                       'A large U2 item with a photo cover'])

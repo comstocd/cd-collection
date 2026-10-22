@@ -1,7 +1,7 @@
 /* CD Collection: service worker (offline cache + update detection).
    tools/deploy.sh stamps BUILD on every release; a changed BUILD is what tells devices an update exists.
    Written in ES2017 with no optional chaining so it runs on iOS 12 Safari. */
-var BUILD = 5;
+var BUILD = 6;
 var CACHE = 'cd-collection-b' + BUILD;
 var BASE = '/cd-collection/';
 var FILES = ['', 'index.html', 'collection.js', 'apple-touch-icon.png', 'manifest.json'];
