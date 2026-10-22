@@ -1,6 +1,6 @@
 # CD Collection
 
-Searchable catalogue of David Comstock's CDs and SACDs: which cubby of the 4 x 6 shelf each one lives in, plus label, catalogue number, barcode and pressing for each copy.
+Searchable personal catalogue of CDs and SACDs: shelf location for each, plus label, catalogue number, barcode and pressing for each copy.
 
 Live site: https://comstocd.github.io/cd-collection/
 
@@ -10,4 +10,4 @@ Live site: https://comstocd.github.io/cd-collection/
 - `tools/build.py` — regenerates `collection.js` from `CD_Catalogue.xlsx` (sheets: Shelf plan, Picard Jan 2023, Photo batch 1-6)
 - `tools/deploy.sh` — rebuild, bump BUILD, commit and push
 
-Pressing details come from the MusicBrainz release matched when each disc was ripped (January 2023) or from spine photos. Entries flagged `check` have partly unreadable spines.
+
