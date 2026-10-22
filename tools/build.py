@@ -159,6 +159,17 @@ def copy_info(a0, t0, fmt):
     c['source'] = 'MusicBrainz (Picard lookup, Jan 2023)' if p else ('Spine photo' if ph else 'Shelf plan')
     return {k2: v for k2, v in c.items() if v not in (None, '')}
 
+# Corrections confirmed against the physical case. Picard's disc-ID lookup matched the wrong
+# release for these (a hybrid SACD edition); the barcode on the case is a standard CD.
+OVERRIDES = {
+    ('Norah Jones', 'Come Away With Me'): dict(discs=1, copy=dict(
+        label='Blue Note', barcode='724353208820',
+        source='Barcode on the case (checked against library catalogue records for this UPC)')),
+    ('Ray Charles', 'Genius Loves Company'): dict(discs=1, copy=dict(
+        date='2004', country='US', label='Concord Records / Hear Music', catno='CCD-2248-2', barcode='013431224822',
+        source='Barcode on the case (checked against the ECU library catalogue record)')),
+}
+
 items = []
 for r in rows('Shelf plan'):
     sec, a0, t0, discs, fmt = r['section'], r['artist'], r['title'], r['discs'], r['format']
@@ -177,8 +188,13 @@ for r in rows('Shelf plan'):
         key = fkey(a)
     lookup_t = 'The Beatles (White Album)' if t0 == 'The Beatles (White Album), 2nd copy' else t0
     if lookup_t == 'The Beatles (White Album)': lookup_t = 'The Beatles'
+    cp = copy_info(a0, lookup_t, fmt)
+    ov = OVERRIDES.get((a0, t0))
+    if ov:
+        cp = dict(ov['copy'], **{k: v for k, v in cp.items() if k == 'found'})
+        discs = ov['discs']
     items.append(dict(sec=sk, section=sname, key=key, artist=a, title=t, artist_full=a0, title_full=t0,
-                      format=fmt, discs=int(discs or 1), copy=copy_info(a0, lookup_t, fmt)))
+                      format=fmt, discs=int(discs or 1), copy=cp))
 
 # merge identical cases into one entry with a copies list
 merged = collections.OrderedDict()
