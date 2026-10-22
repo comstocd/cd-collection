@@ -1,0 +1,10 @@
+{
+  "name": "CD Collection",
+  "short_name": "CDs",
+  "start_url": "/cd-collection/",
+  "scope": "/cd-collection/",
+  "display": "standalone",
+  "background_color": "#f6f5f2",
+  "theme_color": "#1e1d1b",
+  "icons": [{ "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }]
+}

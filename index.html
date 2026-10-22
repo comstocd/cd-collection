@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>David's CD Collection</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CDs">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+/* Same system as the DVD site. Two views: List (expandable rows) and Shelf (the 4 x 6 cubby unit).
+   Sized for iPad Air (1024 x 768 pt, iOS 12 Safari): no flex gap, no optional chaining, 44pt touch targets. */
+:root{
+  --bg:#f6f5f2; --panel:#ffffff; --fg:#1d1c1a; --muted:#6b6862; --line:#dedbd4;
+  --accent:#1f5f8b; --chip:#ece9e2; --flag:#7a5d00; --flagbg:#fbf1cf; --hit:#fff0a0; --frame:#d6d2c9;
+  --c-xmas:#b23a3a; --c-other:#7d7a70; --c-classical:#6a4c93; --c-jazz:#1f6f8b;
+  --c-beatles:#2d2d2d; --c-dead:#c2501d; --c-allmans:#5b7d2a; --c-rock:#355c9c;
+  --display:"Archivo Narrow","Arial Narrow",Arial,sans-serif;
+  --body:"Source Serif 4",Georgia,serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#151413; --panel:#1e1d1b; --fg:#ece9e3; --muted:#a39f97; --line:#34322e; --frame:#2c2a27;
+  --accent:#6fb3e0; --chip:#2a2825; --flag:#f0cf6a; --flagbg:#3a3215; --hit:#5a4d10;
+  --c-xmas:#e0706a; --c-other:#b4b0a4; --c-classical:#b294e0; --c-jazz:#5fb6d4;
+  --c-beatles:#d8d8d8; --c-dead:#ef8a55; --c-allmans:#9cc25e; --c-rock:#7fa6e8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151413; --panel:#1e1d1b; --fg:#ece9e3; --muted:#a39f97; --line:#34322e; --frame:#2c2a27;
+  --accent:#6fb3e0; --chip:#2a2825; --flag:#f0cf6a; --flagbg:#3a3215; --hit:#5a4d10;
+  --c-xmas:#e0706a; --c-other:#b4b0a4; --c-classical:#b294e0; --c-jazz:#5fb6d4;
+  --c-beatles:#d8d8d8; --c-dead:#ef8a55; --c-allmans:#9cc25e; --c-rock:#7fa6e8; color-scheme:dark}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1000px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:28px;padding-bottom:56px}
+.wrap.wide{max-width:1280px}
+h1{font-family:var(--display);font-weight:700;font-size:2rem;letter-spacing:.01em;margin:0}
+.sub{color:var(--muted);margin:4px 0 0}
+.stats{display:flex;flex-wrap:wrap;margin-top:14px;font-family:var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
+.stats>span{margin:0 18px 6px 0}
+.stats b{color:var(--fg)}
+.bar{position:-webkit-sticky;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-top:12px;padding-bottom:4px;margin-top:16px;border-bottom:1px solid var(--line)}
+.bar>*+*{margin-top:10px}
+.top{display:flex;align-items:center}
+.top>*+*{margin-left:10px}
+#q{flex:1 1 auto;min-width:0;width:100%;font:inherit;font-size:16px;-webkit-appearance:none;appearance:none;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--fg)}
+.seg{display:flex;flex:0 0 auto;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font-family:var(--display);font-size:.95rem;letter-spacing:.03em;border:0;background:var(--chip);color:var(--fg);padding:8px 14px;cursor:pointer;-webkit-appearance:none}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--bg)}
+.row{display:flex;flex-wrap:wrap;align-items:center}
+.row>*{margin:0 8px 8px 0}
+select,.toggle{font-family:var(--display);font-size:.88rem;letter-spacing:.02em;border:1px solid var(--line);background:var(--chip);color:var(--fg);border-radius:999px;padding:4px 11px;cursor:pointer}
+select{border-radius:6px;padding:5px 8px}
+.toggle{-webkit-appearance:none;appearance:none}
+.toggle[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.sl{font-family:var(--display);font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+#list{margin-top:8px}
+details{border-bottom:1px solid var(--line)}
+details.flash{background:var(--hit)}
+summary{list-style:none;cursor:pointer;display:block;padding:10px 4px;-webkit-tap-highlight-color:transparent}
+summary::-webkit-details-marker{display:none}
+.sum{display:-ms-grid;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-gap:2px 12px}
+.t{font-weight:600;min-width:0}
+.t .yr{font-weight:400;color:var(--muted)}
+.by{grid-column:1;color:var(--muted);font-size:.9rem;min-width:0}
+.tags{grid-column:2;grid-row:1 / span 2;display:flex;flex-direction:column;align-items:flex-end}
+.tags>*+*{margin-top:4px}
+.tag{font-family:var(--display);font-size:.78rem;letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+.fmt{border:1px solid var(--line);border-radius:4px;padding:0 5px}
+.fmt.sacd{border-color:var(--accent);color:var(--accent);font-weight:700}
+.pos{font-family:var(--display);font-weight:700;color:var(--sc,var(--fg));letter-spacing:.03em}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--sc);margin-right:6px;vertical-align:1px}
+.flag{display:inline-block;font-family:var(--display);font-size:.72rem;letter-spacing:.05em;background:var(--flagbg);color:var(--flag);border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:1px;font-weight:500}
+.body{padding:2px 4px 16px}
+.body>*+*{margin-top:14px}
+.kv{display:grid;grid-template-columns:120px minmax(0,1fr);grid-gap:4px 14px;font-size:.93rem;margin:0}
+.kv h3{grid-column:1 / -1;margin:0;font-family:var(--display);font-size:1.05rem;font-weight:700}
+.kv dt{font-family:var(--display);font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-top:2px}
+.kv dd{margin:0;min-width:0;overflow-wrap:break-word;word-wrap:break-word}
+.kv a{color:var(--accent)}
+.mono{font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.copy{font-size:.9rem;color:var(--muted)}
+.empty{color:var(--muted);padding:24px 4px}
+/* shelf view */
+.unit{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-gap:8px;background:var(--frame);padding:8px;border-radius:4px;margin-top:12px}
+.cubby{background:var(--panel);min-width:0;padding:8px 10px 10px;border-top:4px solid var(--sc);-webkit-transition:opacity .15s;transition:opacity .15s}
+.cubby header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;grid-gap:0 8px;margin-bottom:6px}
+.cubby .p{grid-column:1 / -1;font-family:var(--display);font-size:.72rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.cubby h2{font-family:var(--display);font-weight:700;font-size:1.02rem;line-height:1.15;margin:2px 0 0;letter-spacing:.02em;text-transform:uppercase}
+.cubby .n{font-family:var(--display);font-weight:700;color:var(--sc);font-variant-numeric:tabular-nums}
+.cubby .s{grid-column:1 / -1;margin:2px 0 0;color:var(--muted);font-size:.76rem;line-height:1.3}
+.cubby ol{list-style:none;margin:0;padding:0}
+.cubby li.a{font-family:var(--display);font-weight:700;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--sc);margin-top:6px;padding-top:4px;border-top:1px solid var(--line)}
+.cubby li.a:first-child{margin-top:0;border-top:0;padding-top:0}
+.cubby li.i{font-size:.84rem;line-height:1.3}
+.cubby li.i a{display:block;padding:3px 0 3px 6px;color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent;border-radius:3px}
+.cubby li.i.hit a{background:var(--hit)}
+.cubby .b{font-family:var(--display);font-size:.62rem;font-weight:700;letter-spacing:.08em;margin-left:4px;padding:1px 3px;border-radius:3px;border:1px solid var(--sc);color:var(--sc);vertical-align:1px}
+.cubby .b.d{border-color:var(--muted);color:var(--muted)}
+.spare{--sc:var(--frame);background:repeating-linear-gradient(135deg,var(--panel) 0,var(--panel) 10px,var(--bg) 10px,var(--bg) 11px)}
+.dim .cubby:not(.on){opacity:.25}
+.s-xmas{--sc:var(--c-xmas)}.s-other{--sc:var(--c-other)}.s-classical{--sc:var(--c-classical)}.s-jazz{--sc:var(--c-jazz)}
+.s-beatles{--sc:var(--c-beatles)}.s-dead{--sc:var(--c-dead)}.s-allmans{--sc:var(--c-allmans)}.s-rock{--sc:var(--c-rock)}
+footer{margin-top:28px;color:var(--muted);font-size:.85rem;max-width:70ch}
+footer ul{margin:6px 0 0;padding-left:18px}
+[hidden]{display:none!important}
+@media (max-width:600px){.kv{grid-template-columns:1fr}.kv dt{padding-top:6px}.unit{grid-template-columns:repeat(2,minmax(0,1fr))}.top{flex-wrap:wrap}.top>*+*{margin-left:0;margin-top:8px}}
+@media (max-width:820px){label.sl{display:none}}
+@media (min-width:700px){body{font-size:17px}h1{font-size:2.4rem}}
+@media (pointer:coarse){select,.toggle{min-height:44px;padding:8px 14px;font-size:1rem}select{padding:8px 10px}#q{padding:12px 14px;font-size:17px}.seg button{min-height:44px;padding:8px 18px;font-size:1.02rem}summary{padding:14px 6px}.kv a{display:inline-block;padding:4px 0}.cubby li.i a{padding:5px 0 5px 6px}}
+#upd{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));-webkit-transform:translateX(-50%);transform:translateX(-50%);z-index:20;display:none;align-items:center;background:var(--fg);color:var(--bg);border-radius:999px;padding:6px 6px 6px 16px;box-shadow:0 4px 18px rgba(0,0,0,.25);font-family:var(--display);font-size:.95rem;white-space:nowrap}
+#upd.on{display:-webkit-flex;display:flex}
+#upd>*+*{margin-left:10px}
+#upd button{font:inherit;border:0;border-radius:999px;padding:8px 14px;min-height:40px;cursor:pointer;-webkit-appearance:none}
+#updGo{background:var(--accent);color:#fff;font-weight:700}
+#updLater{background:transparent;color:var(--bg);opacity:.75}
+#off{display:none;font-family:var(--display);font-size:.8rem;letter-spacing:.04em;color:var(--flag);background:var(--flagbg);border-radius:4px;padding:1px 6px;margin-left:8px;vertical-align:2px}
+#off.on{display:inline-block}
+.ver{font-family:var(--display);font-size:.85rem;letter-spacing:.03em;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}.cubby{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <h1>CD Collection</h1>
+  <p class="sub">Every CD and SACD, which cubby it lives in, and which pressing it is.</p>
+  <p class="sub ver"><span id="ver"></span><span id="off">Offline: saved copy</span></p>
+  <div class="stats" id="stats"></div>
+
+  <div class="bar">
+    <div class="top">
+      <input id="q" type="search" placeholder="Search artist, title, label, catalogue number…" aria-label="Search the collection" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <div class="seg" role="group" aria-label="View">
+        <button type="button" id="vList" aria-pressed="true">List</button><button type="button" id="vShelf" aria-pressed="false">Shelf</button>
+      </div>
+    </div>
+    <div class="row">
+      <label class="sl" for="sec">Section</label>
+      <select id="sec" aria-label="Section"><option value="">All</option></select>
+      <label class="sl" for="fmt">Format</label>
+      <select id="fmt" aria-label="Format"><option value="">All</option><option>CD</option><option>SACD</option></select>
+      <label class="sl" for="sort" id="sortL">Sort</label>
+      <select id="sort" aria-label="Sort">
+        <option value="shelf">Shelf order</option><option value="artist">Artist</option><option value="title">Title</option><option value="year">Pressing year</option>
+      </select>
+      <button type="button" class="toggle" id="chk" aria-pressed="false">Needs checking</button>
+    </div>
+  </div>
+
+  <div id="list"></div>
+  <div id="shelf" hidden></div>
+  <div id="upd" role="status" aria-live="polite"><span>Update available</span><button type="button" id="updGo">Update now</button><button type="button" id="updLater">Later</button></div>
+
+  <footer>
+    <p>Shelf positions follow the 4 × 6 cubby plan: R1 is the top row, C1 the left column. Within a section, solo artists file by surname and bands by first word, ignoring "The"; the Beatles and the first Grateful Dead cubby run in release order. Label, catalogue number, barcode and pressing date come from the MusicBrainz release your drive matched when the disc was ripped in January 2023, or from the spine photos for discs not ripped (including every SACD, which a computer drive can't read). The pressing year is that edition's release, not the album's original year. Entries marked CHECK are partly unreadable spines.</p>
+    <p id="unplacedHead">Not on the shelf map yet:</p>
+    <ul id="unplaced"></ul>
+  </footer>
+</div>
+
+<script src="collection.js"></script>
+<script>
+(function(){
+var C=window.COLLECTION||{items:[],cubbies:[]};
+var ITEMS=C.items, CUB=C.cubbies;
+var SECNAME={xmas:"Christmas",other:"Other",classical:"Classical",jazz:"Jazz",beatles:"Beatles",dead:"Grateful Dead",allmans:"Allman Brothers",rock:"Rock & Pop"};
+var SECORDER=["rock","dead","jazz","classical","beatles","other","xmas","allmans"];
+var st={q:"",sec:"",fmt:"",sort:"shelf",chk:false,view:"list"};
+try{var sv=localStorage.getItem("cd-view");if(sv==="shelf"||sv==="list")st.view=sv}catch(e){}
+var $=function(id){return document.getElementById(id)};
+var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+var art=function(t){return t.replace(/^(The|A|An) /i,"")};
+var byId={};
+ITEMS.forEach(function(i,n){
+  byId[i.id]=i; i._n=n;
+  i._hay=[i.artist,i.title,i.artist_full,i.title_full,i.section,i.cubby,i.cubby_name,i.format]
+    .concat(i.copies.map(function(c){return [c.label,c.catno,c.barcode,c.date,c.found,c.note].join(" ")}))
+    .join(" ").toLowerCase().replace(/[‐‑–]/g,"-");
+});
+var counts={};ITEMS.forEach(function(i){counts[i.sec]=(counts[i.sec]||0)+i.qty});
+SECORDER.forEach(function(k){$("sec").insertAdjacentHTML("beforeend",'<option value="'+k+'">'+esc(SECNAME[k])+" ("+(counts[k]||0)+")</option>")});
+
+var qt=null;
+$("q").oninput=function(e){var v=e.target.value;clearTimeout(qt);qt=setTimeout(function(){st.q=v.toLowerCase().trim();render()},150)};
+$("sec").onchange=function(e){st.sec=e.target.value;render()};
+$("fmt").onchange=function(e){st.fmt=e.target.value;render()};
+$("sort").onchange=function(e){st.sort=e.target.value;render()};
+$("chk").onclick=function(){st.chk=!st.chk;render()};
+function setView(v){st.view=v;try{localStorage.setItem("cd-view",v)}catch(e){}render()}
+$("vList").onclick=function(){setView("list")};
+$("vShelf").onclick=function(){setView("shelf")};
+
+function match(i){
+  var words=st.q.replace(/[‐‑–]/g,"-").split(/\s+/).filter(Boolean);
+  return (!st.sec||i.sec===st.sec)&&(!st.fmt||i.format===st.fmt)&&(!st.chk||i.check)&&
+    words.every(function(w){return i._hay.indexOf(w)>-1});
+}
+function filtering(){return !!(st.q||st.sec||st.fmt||st.chk)}
+
+function copyBlock(c,k,many){
+  var rows=[];
+  function add(n,v){if(v!=null&&v!=="")rows.push("<dt>"+n+"</dt><dd>"+v+"</dd>")}
+  add("Label",c.label?esc(c.label):null);
+  add("Cat. no.",c.catno?'<span class="mono">'+esc(c.catno)+"</span>":null);
+  add("Barcode",c.barcode?'<span class="mono">'+esc(c.barcode)+"</span>":null);
+  add("Pressing",[c.date,c.country].filter(Boolean).map(esc).join(" · ")||null);
+  add("Found",c.found?esc(c.found):null);
+  add("Note",c.note?esc(c.note):null);
+  add("Details",c.mbid?'<a href="https://musicbrainz.org/release/'+esc(c.mbid)+'" target="_blank" rel="noopener">MusicBrainz release</a>':'<span class="copy">'+esc(c.source)+"</span>");
+  return '<dl class="kv">'+(many?"<h3>Copy "+(k+1)+"</h3>":"")+rows.join("")+"</dl>";
+}
+function discogs(i){
+  var a=i.artist.charAt(0)==="("||/^Various/.test(i.artist)?"":i.artist;
+  return "https://www.discogs.com/search/?type=release&q="+encodeURIComponent((a+" "+i.title).trim());
+}
+function rowHTML(i){
+  var yr=i.year?' <span class="yr">('+i.year+")</span>":"";
+  var flag=i.check?'<span class="flag">CHECK</span>':"";
+  var info=[i.discs>1?i.discs+" discs":"",i.qty>1?i.qty+" copies":""].filter(Boolean).join(" · ");
+  var head='<dl class="kv"><dt>Shelf</dt><dd><span class="pos s-'+i.sec+'">'+esc(i.cubby)+"</span> · "+esc(i.cubby_name)+"</dd>"+
+    "<dt>Section</dt><dd>"+esc(i.section)+"</dd><dt>Format</dt><dd>"+esc(i.format)+(info?" · "+esc(info):"")+"</dd>"+
+    (i.artist_full?"<dt>Credited</dt><dd>"+esc(i.artist_full)+"</dd>":"")+
+    (i.title_full?"<dt>Full title</dt><dd>"+esc(i.title_full)+"</dd>":"")+
+    '<dt>Look up</dt><dd><a href="'+discogs(i)+'" target="_blank" rel="noopener">Search Discogs</a></dd></dl>';
+  return '<details id="it'+i.id+'"><summary><div class="sum"><span class="t">'+esc(i.title)+yr+flag+'</span><span class="tags"><span class="tag pos s-'+i.sec+'"><span class="dot"></span>'+esc(i.cubby)+'</span><span class="tag fmt'+(i.format==="SACD"?" sacd":"")+'">'+esc(i.format)+(i.qty>1?" ×"+i.qty:"")+'</span></span><span class="by">'+esc(i.artist)+(info?" · "+esc(info):"")+'</span></div></summary><div class="body">'+head+
+    i.copies.map(function(c,k){return copyBlock(c,k,i.copies.length>1)}).join("")+"</div></details>";
+}
+function renderList(r){
+  var T=function(a,b){return art(a.title).localeCompare(art(b.title))};
+  var A=function(a,b){return art(a.artist).localeCompare(art(b.artist))};
+  r.sort(function(a,b){
+    if(st.sort==="artist")return A(a,b)||T(a,b);
+    if(st.sort==="title")return T(a,b)||A(a,b);
+    if(st.sort==="year")return (a.year||9999)-(b.year||9999)||A(a,b);
+    return a._n-b._n;
+  });
+  $("list").innerHTML=r.length?r.map(rowHTML).join(""):'<p class="empty">Nothing matches. Clear the search or pick another section.</p>';
+}
+function renderShelf(){
+  var dim=filtering();
+  $("shelf").innerHTML='<div class="unit'+(dim?" dim":"")+'">'+CUB.map(function(c){
+    if(c.sec==="spare")return '<section class="cubby spare"><header><span class="p">'+esc(c.pos)+'</span><h2>Spare</h2><p class="s">'+esc(c.sub)+"</p></header></section>";
+    var list=c.ids.map(function(id){return byId[id]});
+    var single=list.every(function(i){return i.artist===list[0].artist});
+    var prev=null,on=false,n=0,html=[];
+    list.forEach(function(i){
+      n+=i.qty;
+      if(!single&&i.artist!==prev){html.push('<li class="a">'+esc(i.artist)+"</li>");prev=i.artist}
+      var hit=dim&&match(i);if(hit)on=true;
+      html.push('<li class="i'+(hit?" hit":"")+'"><a href="#it'+i.id+'" data-id="'+i.id+'">'+esc(i.title)+
+        (i.format==="SACD"?'<b class="b">SACD</b>':"")+(i.qty>1?'<b class="b d">×'+i.qty+"</b>":"")+"</a></li>");
+    });
+    return '<section class="cubby s-'+c.sec+(on?" on":"")+'"><header><span class="p">'+esc(c.pos)+"</span><h2>"+esc(c.name)+'</h2><span class="n">'+n+"</span>"+(c.sub?'<p class="s">'+esc(c.sub)+"</p>":"")+"</header><ol>"+html.join("")+"</ol></section>";
+  }).join("")+"</div>";
+}
+$("shelf").addEventListener("click",function(e){
+  var a=e.target.closest?e.target.closest("a[data-id]"):null;
+  if(!a)return;
+  e.preventDefault();
+  st.q="";$("q").value="";st.sec="";$("sec").value="";st.fmt="";$("fmt").value="";st.chk=false;
+  setView("list");
+  var d=$("it"+a.getAttribute("data-id"));
+  if(d){d.open=true;d.className="flash";d.scrollIntoView();window.scrollBy(0,-(document.querySelector(".bar").offsetHeight+12));setTimeout(function(){d.className=""},1600)}
+});
+function render(){
+  $("chk").setAttribute("aria-pressed",String(st.chk));
+  $("vList").setAttribute("aria-pressed",String(st.view==="list"));
+  $("vShelf").setAttribute("aria-pressed",String(st.view==="shelf"));
+  $("list").hidden=st.view!=="list";$("shelf").hidden=st.view!=="shelf";
+  $("wrap").className="wrap"+(st.view==="shelf"?" wide":"");
+  $("sort").hidden=$("sortL").hidden=st.view==="shelf";
+  var r=ITEMS.filter(match);
+  if(st.view==="list")renderList(r);else renderShelf();
+  var cases=ITEMS.reduce(function(s,i){return s+i.qty},0);
+  var sacd=ITEMS.filter(function(i){return i.format==="SACD"}).reduce(function(s,i){return s+i.qty},0);
+  var shown=r.reduce(function(s,i){return s+i.qty},0);
+  $("stats").innerHTML="<span><b>"+cases+"</b> cases</span><span><b>"+ITEMS.length+"</b> titles</span><span><b>"+sacd+"</b> SACD</span><span><b>"+ITEMS.filter(function(i){return i.check}).length+"</b> to check</span><span>"+(filtering()?"Matching":"Showing")+" <b>"+shown+"</b></span>";
+}
+render();
+$("ver").textContent="Build "+(C.build||"?")+" · updated "+(C.updated||"");
+(C.unplaced||[]).forEach(function(u){$("unplaced").insertAdjacentHTML("beforeend","<li>"+esc(u)+"</li>")});
+if(!(C.unplaced||[]).length)$("unplacedHead").hidden=true;
+})();
+</script>
+<script>
+(function(){
+  var off=document.getElementById("off"),upd=document.getElementById("upd");
+  function net(){off.className=navigator.onLine?"":"on"}
+  window.addEventListener("online",net);window.addEventListener("offline",net);net();
+  if(!("serviceWorker" in navigator)||(location.hostname!=="comstocd.github.io"&&location.hostname!=="localhost"))return;
+  var waiting=null,refreshing=false;
+  function show(w){waiting=w;upd.className="on"}
+  function watch(w){w.addEventListener("statechange",function(){if(w.state==="installed"&&navigator.serviceWorker.controller)show(w)})}
+  navigator.serviceWorker.register("sw.js",{scope:"./"}).then(function(reg){
+    if(reg.waiting&&navigator.serviceWorker.controller)show(reg.waiting);
+    if(reg.installing)watch(reg.installing);
+    reg.addEventListener("updatefound",function(){if(reg.installing)watch(reg.installing)});
+    function check(){if(navigator.onLine)reg.update().catch(function(){})}
+    check();
+    document.addEventListener("visibilitychange",function(){if(!document.hidden)check()});
+    setInterval(check,3600000);
+  }).catch(function(){});
+  var asked=false;
+  navigator.serviceWorker.addEventListener("controllerchange",function(){if(asked&&!refreshing){refreshing=true;location.reload()}});
+  document.getElementById("updGo").onclick=function(){asked=true;if(waiting)waiting.postMessage({type:"SKIP_WAITING"});else location.reload()};
+  document.getElementById("updLater").onclick=function(){upd.className="";setTimeout(function(){if(waiting)upd.className="on"},3600000)};
+})();
+</script>
+</body>
+</html>
