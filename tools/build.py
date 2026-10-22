@@ -168,18 +168,33 @@ OVERRIDES = {
     ('Ray Charles', 'Genius Loves Company'): dict(discs=1, copy=dict(
         date='2004', country='US', label='Concord Records / Hear Music', catno='CCD-2248-2', barcode='013431224822',
         source='Barcode on the case (checked against the ECU library catalogue record)')),
+    # Spines were unreadable; details read from the case by David, Oct 2026.
+    ('Fuzz(?)', 'For the Holiday(?)'): dict(discs=1, artist='Davie Allan & The Arrows', title='Fuzz for the Holidays', copy=dict(
+        date='2004', label='Wicked Cool Records', catno='WC001', barcode='2534682672 (partial, as read from case)',
+        note='Produced by Little Steven',
+        source='Case details from David; artist confirmed by the Apple Music listing for this title')),
+    ('(Spiritual Environment series)', 'Shamanic Dream'): dict(discs=1, artist='Anugama', title='Shamanic Dream', copy=dict(
+        date='1990', country='West Germany', label='Meistersinger Musik', catno='NGH-CD-321',
+        barcode='1831103212 (partial, as read from case)', note='Spiritual Environment series',
+        source='Case details from David; Anugama album confirmed by Qobuz discography')),
+    ('(artist not on spine)', 'Stormy Weather'): dict(discs=1, artist='Various', title='Stormy Weather', copy=dict(
+        date='1998', country='US', label='The Isis Fund (for AT&T)',
+        note='Walden Woods Project benefit concert, Wiltern Theatre, Los Angeles, April 16, 1998; produced by Don Henley; ten women singers, one standard each (Joni Mitchell sings the title track); given to AT&T customers, not sold in stores',
+        source='Case details from David; confirmed by Wikipedia, Stormy Weather (AT&T album)')),
 }
 
 items = []
 for r in rows('Shelf plan'):
     sec, a0, t0, discs, fmt = r['section'], r['artist'], r['title'], r['discs'], r['format']
     sk, sname = SECS[sec[0]]
+    ov = OVERRIDES.get((a0, t0))
     a = ARTIST_FIX.get(a0, a0)
+    if ov and 'artist' in ov: a = ov['artist']
     if sk == 'classical':
         key, a, t = CLASSICAL[t0]
         key = key.lower()
     else:
-        t = TITLE_FIX.get(t0, t0)
+        t = ov['title'] if ov and 'title' in ov else TITLE_FIX.get(t0, t0)
         if t == 'The Beatles (White Album), 2nd copy' or (a == 'The Beatles' and t == 'The Beatles'):
             t = 'The Beatles (White Album)'
         if a == 'Grateful Dead' and t == 'The Grateful Dead': t = 'The Grateful Dead (debut)'
@@ -189,7 +204,6 @@ for r in rows('Shelf plan'):
     lookup_t = 'The Beatles (White Album)' if t0 == 'The Beatles (White Album), 2nd copy' else t0
     if lookup_t == 'The Beatles (White Album)': lookup_t = 'The Beatles'
     cp = copy_info(a0, lookup_t, fmt)
-    ov = OVERRIDES.get((a0, t0))
     if ov:
         cp = dict(ov['copy'], **{k: v for k, v in cp.items() if k == 'found'})
         discs = ov['discs']
@@ -276,7 +290,9 @@ for r, row in enumerate(GRID, 1):
             it['qty'] = len(it['copies'])
             dates = [x.get('date', '') for x in it['copies'] if x.get('date')]
             it['year'] = int(dates[0][:4]) if dates else None
-            it['check'] = '(?)' in it['artist_full'] + it['title_full'] or it['artist'].startswith('(') or any(x.pop('sacd_match', False) for x in it['copies'])
+            fixed = (it['artist_full'], it['title_full']) in OVERRIDES
+            if fixed: it['artist_full'], it['title_full'] = it['artist'], it['title']
+            it['check'] = not fixed and ('(?)' in it['artist_full'] + it['title_full']) or it['artist'].startswith('(') or any(x.pop('sacd_match', False) for x in it['copies'])
             if it['title'] == it['title_full']: it.pop('title_full')
             if it['artist'] == it['artist_full']: it.pop('artist_full')
             ids.append(seq); out_items.append(it)
