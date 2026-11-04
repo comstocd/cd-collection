@@ -185,6 +185,11 @@ OVERRIDES = {
         date='1998', country='US', label='The Isis Fund (for AT&T)',
         note='Walden Woods Project benefit concert, Wiltern Theatre, Los Angeles, April 16, 1998; produced by Don Henley; ten women singers, one standard each (Joni Mitchell sings the title track); given to AT&T customers, not sold in stores',
         source='Case details from David; confirmed by Wikipedia, Stormy Weather (AT&T album)')),
+    # Details from David, Nov 2026: MoFi order 2000042449 (9/1/2026) and the case.
+    ('Michael Jackson', 'Bad'): dict(discs=1, copy=dict(
+        label='Mobile Fidelity Sound Lab', catno='UDSACD 2288', barcode='198028483421',
+        note='Numbered edition, No. 000065. Bought from MoFi, 9/1/2026',
+        source='Case and MoFi order from David; catalogue number confirmed by eCoustics, barcode by retailer listing')),
 }
 
 items = []
