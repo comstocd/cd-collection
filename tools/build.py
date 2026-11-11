@@ -190,6 +190,19 @@ OVERRIDES = {
         label='Mobile Fidelity Sound Lab', catno='UDSACD 2288', barcode='198028483421',
         note='Numbered edition, No. 000065. Bought from MoFi, 9/1/2026',
         source='Case and MoFi order from David; catalogue number confirmed by eCoustics, barcode by retailer listing')),
+    # MoFi web order 2000046966 (11/4/2026), arrived 11/10/2026. Keyed by format where a CD copy of the same title exists.
+    ('The Butterfield Blues Band', 'East-West', 'SACD'): dict(discs=1, copy=dict(
+        label='Mobile Fidelity Sound Lab', catno='UDSACD 2308', barcode='821797230865',
+        note='Mono. Numbered edition, No. 001079. Bought from MoFi, 11/4/2026',
+        source='Case and MoFi order from David; catalogue number and barcode confirmed by MoFi and Acoustic Sounds listings')),
+    ('Carole King', 'Tapestry', 'SACD'): dict(discs=1, copy=dict(
+        label='Mobile Fidelity Sound Lab', catno='UDSACD 2117', barcode='821797211765',
+        note='Numbered edition, No. 008460. Bought from MoFi, 11/4/2026',
+        source='Case and MoFi order from David; catalogue number and barcode confirmed by MoFi and retailer listings')),
+    ('Simon & Garfunkel', 'Bridge Over Troubled Water', 'SACD'): dict(discs=1, copy=dict(
+        label='Mobile Fidelity Sound Lab', catno='UDSACD 2263', barcode='196588551321',
+        note='Numbered edition, No. 5910. Bought from MoFi, 11/4/2026',
+        source='Case and MoFi order from David; catalogue number and barcode confirmed by MoFi and retailer listings')),
 }
 
 items = []
@@ -198,7 +211,7 @@ for r in rows('Shelf plan'):
     w = float(r.get('shelf width (cases)') if r.get('shelf width (cases)') is not None else 1)
     loose = bool(r.get('storage'))
     sk, sname = SECS[sec[0]]
-    ov = OVERRIDES.get((a0, t0))
+    ov = OVERRIDES.get((a0, t0, fmt)) or OVERRIDES.get((a0, t0))
     a = ARTIST_FIX.get(a0, a0)
     if ov and 'artist' in ov: a = ov['artist']
     if sk == 'classical':
@@ -330,7 +343,7 @@ for r, row in enumerate(GRID, 1):
             it['qty'] = len(it['copies'])
             dates = [x.get('date', '') for x in it['copies'] if x.get('date')]
             it['year'] = int(dates[0][:4]) if dates else None
-            fixed = (it['artist_full'], it['title_full']) in OVERRIDES
+            fixed = (it['artist_full'], it['title_full']) in OVERRIDES or (it['artist_full'], it['title_full'], it['format']) in OVERRIDES
             if fixed: it['artist_full'], it['title_full'] = it['artist'], it['title']
             it['check'] = not fixed and ('(?)' in it['artist_full'] + it['title_full']) or it['artist'].startswith('(') or any(x.pop('sacd_match', False) for x in it['copies'])
             if it['title'] == it['title_full']: it.pop('title_full')
